@@ -48,40 +48,40 @@ a_direita: 		.word 0x0
 erro:			.word 0x0
 
 tab_switch:
-	.word case_default	@ (0x0)
-	.word case_LOAD 	@ opcode = 0x01			
-	.word case_LOADN 	@ opcode = 0x02	
-	.word case_LOADABS 	@ opcode = 0x03
-	.word case_default	@ (0x4)		
-	.word case_ADD 		@ opcode = 0x05		
-	.word case_SUB 		@ opcode = 0x06			
-	.word case_ADDABS 	@ opcode = 0x07			
-	.word case_SUBABS 	@ opcode = 0x08
-	.word case_LOADMQM 	@ opcode = 0x09		
-	.word case_LOADMQ 	@ opcode = 0x0A		
-	.word case_MUL 		@ opcode = 0x0B			
-	.word case_DIV 		@ opcode = 0x0C			
-	.word case_JUMPL 	@ opcode = 0x0D		
-	.word case_JUMPR 	@ opcode = 0x0E		
-	.word case_JUMPPL 	@ opcode = 0x0F		
-	.word case_JUMPPR 	@ opcode = 0x10
-	.word case_default	@ (0x11)			
-	.word case_STORL 	@ opcode = 0x12		
-	.word case_STORR 	@ opcode = 0x13			
-	.word case_LSH 		@ opcode = 0x14			
-	.word case_RSH 		@ opcode = 0x15
-	.word case_default	@ (0x16)
-	.word case_default	@ (0x17)
-	.word case_default	@ (0x18)
-	.word case_default	@ (0x19)
-	.word case_default	@ (0x1A)	
-	.word case_default	@ (0x1B)
-	.word case_default	@ (0x1C)
-	.word case_default	@ (0x1D)
-	.word case_default	@ (0x1E)
-	.word case_default	@ (0x1F)
-	.word case_default	@ (0x20)		
-	.word case_STOR 	@ opcode = 0x21
+	.word case_default			@ (0x0)        
+	.word load	 				@ opcode = 0x01
+	.word loadn					@ opcode = 0x02
+	.word loadabs				@ opcode = 0x03
+	.word case_default			@ (0x4)        
+	.word add					@ opcode = 0x05
+	.word sub					@ opcode = 0x06
+	.word addabs				@ opcode = 0x07
+	.word subabs				@ opcode = 0x08
+	.word loadmqm				@ opcode = 0x09
+	.word loadmq				@ opcode = 0x0A
+	.word mul					@ opcode = 0x0B
+	.word div					@ opcode = 0x0C
+	.word jumpl					@ opcode = 0x0D
+	.word jumpr					@ opcode = 0x0E
+	.word jumppl				@ opcode = 0x0F
+	.word jumppr				@ opcode = 0x10
+	.word case_default			@ (0x11)       
+	.word storl					@ opcode = 0x12
+	.word storr					@ opcode = 0x13
+	.word lsh					@ opcode = 0x14
+	.word rsh					@ opcode = 0x15
+	.word case_default			@ (0x16)       
+	.word case_default			@ (0x17)       
+	.word case_default			@ (0x18)       
+	.word case_default			@ (0x19)       
+	.word case_default			@ (0x1A)       
+	.word case_default			@ (0x1B)       
+	.word case_default			@ (0x1C)       
+	.word case_default			@ (0x1D)       
+	.word case_default			@ (0x1E)       
+	.word case_default			@ (0x1F)       
+	.word case_default			@ (0x20)       
+	.word stor					@ opcode = 0x21
 
 .text
 .align 4
@@ -142,7 +142,7 @@ switch:
 								@ r1 - linha atual
 								@ r2 - opcode
 								@ r3 - endereco	
-	mov r2, #0x01
+	mov r2, #0x4
 	mov r3, #-2
 	mov r0, r2
 	cmp r0, #0x01       		@ menor que menor entrada na tabela?
@@ -153,66 +153,364 @@ switch:
 	ldr r4, =tab_switch			@ carrega endereço da tabela de desvios
 	ldr pc,[r4,r0,lsl #2]
 
-	case_LOAD:
-		bl load
-		b break				
-	case_LOADN:
-		bl loadn
-		b break		
-	case_LOADABS:
-		bl loadabs
-		b break 			
-	case_ADD:
-		bl add
-		b break 				
-	case_SUB:
-		bl sub
-		b break 					
-	case_ADDABS:
-		bl addabs
-		b break 				
-	case_SUBABS:
-		bl subabs
-		b break	
-	case_LOADMQM:
-		bl loadmqm
-		b break 			
-	case_LOADMQ:
-		bl loadmq
-		b break 			
-	case_MUL:
-		bl mul
-		b break 					
-	case_DIV :
-		bl div
-		b break					
-	case_JUMPL:
-		bl jumpl
-		b break 			
-	case_JUMPR :
-		bl jumpr
-		b break			
-	case_JUMPPL:
-		bl jumppl
-		b break 			
-	case_JUMPPR:
-		bl jumppr
-		b break 				
-	case_STORL:
-		bl storl
-		b break			
-	case_STORR:
-		bl storr
-		b break 				
-	case_LSH:
-		bl lsh
-		b break					
-	case_RSH:
-		bl rsh
-		b break					
-	case_STOR:
-		bl stor
-		b break	
+@-- Instrucoes
+
+	@ LOAD M(X)	 - 0x01
+	load:
+								@ r3 - endereco
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_load
+		push {r3}
+		bl printf
+		pop {r3}
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+		bl recupera_dado
+		mov r3, r0				@ recupera o retorno de recupera_dado
+		ldr r4, =AC				@ Carrega AC em r4
+		str r3, [r4]			@ Salva conteudo de M(X) em AC	
+
+		b break
+
+	@ LOAD -M(x) - 0x02
+	loadn:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =AC				@ Carrega AC em r4
+		mov r5, #-1				@ Move (-1) para r5
+		mul r6, r3, r5			@ r6 = M(X) * (-1)
+		str r6, [r4]			@ Salva -M(X) em AC
+
+		ldr r0, =p_loadn
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ LOAD |M(X)|- 0x03
+	loadabs:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =AC				@ Carrega AC em r4
+		cmp r3, #0				@ Compara M(X) com 0
+		strge r3, [r4]			@ Se M(X) >= 0, AC = M(X)
+		movlt r5, #-1			@ Se M(X) < 0, carrega -1 em r5,
+		mullt r6, r3, r5		@ r6 = M(X) * (-1)
+		strlt r6, [r4]			@ e AC = -M(X)
+								@ Salva |M(X)| em AC
+
+		ldr r0, =p_loadabs
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+ 
+	@ ADD M(X)   - 0x05
+	add:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =AC				@ Carrega &AC em r4
+		ldr r5, [r4]			@ Carrega conteudo de AC em r5
+		add r5, r5, r3			@ r2 = AC + M(X)
+		str r5, [r4]			@ Salva a soma em AC
+
+		ldr r0, =p_add
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ SUB M(X)   - 0x06
+	sub:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =AC				@ Carrega &AC em r4
+		ldr r5, [r4]			@ Carrega conteudo de AC em r5
+		sub r5, r5, r3			@ r5 = AC - M(X)
+		str r5, [r4]			@ Salva a subtracao em AC
+
+		ldr r0, =p_sub
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ ADD |M(X)| - 0x07
+	addabs:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		cmp r3, #0				@ Compara M(X) com 0
+		movlt r4, #-1			@ Se M(X) <  0, carrega -1 em r4
+		mullt r5, r3, r4		@ e r5 = M(X)*(-1)
+		movge r5, r3			@ Se M(X) >= 0, r5 = M(X)
+		ldr r4, =AC				@ Carrega AC em r4
+		ldr r6, [r4]			@ Carrega conteudo de AC em r6
+		add r6, r6, r5			@ r6 = AC + |M(X)|
+		str r6, [r4]			@ Salva a soma em AC
+
+		ldr r0, =p_addabs
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ SUB |M(X)| - 0x08
+	subabs:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		cmp r3, #0				@ Compara M(X) com 0
+		movlt r4, #-1			@ Se M(X) <  0, carrega -1 em r4
+		mullt r5, r3, r4		@ e r5 = -M(X)
+		movge r5, r3			@ Se M(X) >= 0, r5 = M(X)
+		ldr r4, =AC				@ Carrega AC em r4
+		ldr r5, [r4]			@ Carrega conteudo de AC em r5
+		sub r5, r5, r3			@ r2 = AC - M(X)
+		str r5, [r4]			@ Salva a subtracao em AC
+
+		ldr r0, =p_subabs
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+		
+	@ LOAD MQ,M(x) - 0x09
+	loadmqm:
+		push {ip, lr}
+
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ retorna em r0 a funcao recupera_dado
+		mov r3, r0				@ carrega M(X) em r3
+
+		ldr r4, =MQ				@ Carrega MQ em r4
+		str r3, [r4]			@ Salva M(X) em MQ
+		
+		ldr r0, =p_loadmqm
+		bl printf
+		
+		pop {ip, pc}
+		b break					@ break
+
+	@ LOAD MQ    - 0x0A
+	loadmq:
+		push {r1-r5, ip, lr}
+
+		ldr r4, =MQ				@ Carrega &MQ em r4
+		ldr r4, [r4]			@ Carrega conteudo de MQ
+		ldr r5, =AC				@ Carrega &AC em r5
+		str r4, [r5]			@ Salva conteudo de MQ em AC
+
+		ldr r0, =p_loadmq
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ MUL M(X)   - 0x0B
+	mul:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =MQ				@ Carrega &MQ em r4
+		ldr r5, [r4]			@ r5 = MQ
+		mul r6, r5, r3			@ r6 = MQ * M(X)
+		str r6, [r4]			@ Salva em MQ = MQ * M(X)
+								@ (bits menos significativos)
+		mov r5, #0				@ Zera o r5
+		ldr r6, =AC				@ Carrega &AC em r6
+		str r5, [r6]			@ Salva os zeros no AC
+								@ (bits mais significativos)
+
+		ldr r0, =p_mul
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ DIV M(X)   - 0x0C	
+	div:
+		push {r1-r5, ip, lr}
+		
+		mov r1, r3				@ carrega endereco para funcao recupera_dado
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
+
+		ldr r4, =AC				@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+		mov r5, #0				@ r5 = contador (quociente)
+			Loop_Div:
+				cmp r4, r3		@ Compara AC com M(X)
+				blt Fim_Div		@ Se AC < M(X) salta para Fim_Div
+				add r5, r5, #1	@ Se nao, incrementa r5
+				sub r4, r4, r3	@ r4 = AC - M(X) (resto)
+				b Loop_Div		@ Salta para o loop da divisao
+			Fim_Div:
+				ldr r6, =AC		@ Carrega AC em r6
+				str r4, [r6]	@ Salva o resto da divisao em AC
+				ldr r6, =MQ		@ Carrega MQ em r6
+				str r5, [r6]	@ Salva quociente em MQ
+
+		ldr r0, =p_mul
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ JUMP M(X,0:19) - 0x0D
+	jumpl:
+		push {r1-r5, ip, lr}
+
+		@ -- r3 contem o endereco do opcode
+		ldr r4, =PC				@ Carrega &PC em r4
+		str r3, [r4]			@ Salva endereco em PC
+		ldr r5, =a_direita		@ Carrega a_direita em r5
+		mov r6, #0				@ r6 = 0
+		str r6, [r5]			@ Instrucao a esquerda
+
+		ldr r0, =p_jumpl
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ JUMP M(X,20:39)- 0x0E
+	jumpr:
+		push {r1-r5, ip, lr}
+
+		@ -- r3 contem o endereco do opcode
+		ldr r4, =PC				@ Carrega &PC em r4
+		str r3, [r4]			@ Salva endereco em PC
+		ldr r5, =a_direita		@ Carrega a_direita em r5
+		mov r6, #1				@ r6 = 1
+		str r6, [r5]			@ Instrucao a direita
+
+		ldr r0, =p_jumpr
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ JUMP+M(X,0:19) - 0x0F
+	jumppl:
+		push {r1-r5, ip, lr}
+
+		@ -- r3 contem o endereco do opcode
+
+		ldr r4, =AC				@ Carrega &AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+		cmp r4, #0				@ Compara AC com zero
+		blt break				@ Se AC for negativo: break
+		ldr r4, =PC				@ Se nao, carrega &PC em r4
+		str r3, [r4]			@ Salva endereco em PC
+		ldr r5, =a_direita		@ Carrega a_direita em r5
+		mov r6, #0				@ r6 = 0
+		str r6, [r5]			@ Instrucao a esquerda
+
+		ldr r0, =p_jumppl
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ JUMP+M(X,20:39)- 0x10
+	jumppr:
+		push {r1-r5, ip, lr}
+
+		@ -- r3 contem o endereco do opcode
+
+		ldr r4, =AC				@ Carrega &AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+		cmp r4, #0				@ Compara AC com zero
+		blt break				@ Se AC for negativo: break
+		ldr r4, =PC				@ Se nao, carrega &PC em r4
+		str r3, [r4]			@ Salva endereco em PC
+		ldr r5, =a_direita		@ Carrega a_direita em r5
+		mov r6, #1				@ r6 = 1
+		str r6, [r5]			@ Instrucao a direita
+
+		ldr r0, =p_jumppr
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ STOR M(X,8:19) -0x12
+	storl:
+		push {ip, lr}
+
+		pop {ip, pc}
+
+	@ STOR M(X,28:39)- 0x13
+	storr:
+		push {ip, lr}
+
+		pop {ip, pc}
+
+	@ LSH - 0x14
+	lsh:
+		push {r1-r5, ip, lr}
+
+		ldr r4, =AC				@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+		lsl r5, r4, #1			@ Desloca AC para a esquerda
+		str r5, [r4]			@ Salva AC deslocado em AC
+
+		ldr r0, =p_lsh
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ RSH - 0x15
+	rsh:
+		push {r1-r5, ip, lr}
+
+		ldr r4, =AC				@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+		lsr r5, r4, #1			@ Desloca AC para a direitra
+		str r5, [r4]			@ Salva AC deslocado em AC
+
+		ldr r0, =p_rsh
+		bl printf
+
+		pop {r1-r5, ip, pc}
+		b break
+
+	@ STOR - 0x21
+	stor:
+		push {ip, lr}
+
+		pop {ip, pc}
+
+	@ OpCode falso
 	case_default:
 		bl confirma_erro
 		ldr r0, =p_erro_opcode
@@ -221,121 +519,7 @@ switch:
 
 	break:
 		pop {r1-r5, ip, pc}
-
-load:
-	push {r1-r5, ip, lr}
-							@ r3 - endereco
-	mov r1, r3				@ carrega endereco para print
-	ldr r0, =p_load
-	push {r3}
-	bl printf
-	pop {r3}
-	mov r0, r3				@ carrega endereco para verificacao
-	bl verifica_endereco
-	cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
-	beq sair_load			@ caso tenha erro sai
-	bl recupera_dado
-	mov r3, r0				@ recupera o retorno de recupera_dado
-	ldr r4, =AC				@ Carrega AC em r4
-	str r3, [r4]			@ Salva conteudo de M(X) em AC	
-
-	sair_load:
-		pop {r1-r5, ip, pc}
 		
-loadmqm:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-loadmq:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-loadabs:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-loadn:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-stor:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-storl:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-storr:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-add:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-addabs:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-sub:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-subabs:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-mul:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-div:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-rsh:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-lsh:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-jumpl:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-jumpr:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-jumppl:
-	push {ip, lr}
-
-	pop {ip, pc}
-
-jumppr:
-	push {ip, lr}
-
-	pop {ip, pc}
 
 verifica_endereco:	
 	push {r1-r5, ip, lr}
@@ -363,11 +547,11 @@ verifica_endereco:
 		pop {r1-r5, ip, pc}
 
 confirma_erro:
-	push {ip, lr}
+	push {r1-r3, ip, lr}
 	ldr r1, =erro 
 	mov r2, #1
 	str r2, [r1]	@ mudamos a variavel erro para verdadeira
-	pop {ip, pc}
+	pop {r1-r3, ip, pc}
 
 leitura_linha:	
 	push {ip, lr}

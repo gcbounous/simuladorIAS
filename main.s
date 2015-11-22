@@ -21,7 +21,7 @@ p_erro_opcode: 			.asciz "IASIM: Erro! Instrucao invalida com opcode %02X.\n"
 p_erro_endereco: 		.asciz "IASIM: Erro! Endereco invalido de numero %04X.\n"
 p_erro_divisao: 		.asciz "IASIM: Erro! Divisao por zero.\n"
 p_load: 				.asciz "@ LOAD M(X), X = 0x%04X\n"
-p_loadmmq: 				.asciz "@ LOAD MQ,M(X), X = 0x%04X\n"
+p_loadmqm: 				.asciz "@ LOAD MQ,M(X), X = 0x%04X\n"
 p_loadmq: 				.asciz "@ LOAD MQ, X = 0x%04X\n"
 p_loadabs: 				.asciz "@ LOAD |(M(X)|, X = 0x%04X\n"
 p_loadn: 				.asciz "@ LOAD -(M(X)), X = 0x%04X\n"
@@ -41,16 +41,18 @@ p_jumpr:				.asciz "@ JUMP M(X,20:39), X = 0x%04X\n"
 p_jumppl: 				.asciz "@ JUMP+ M(X,0:19), X = 0x%04X\n"
 p_jumppr: 				.asciz "@ JUMP+ M(X,20:39), X = 0x%04X\n"
 
-mask2: 		.word 0xFF
-mask3: 		.word 0xFFF
-a_direita: 	.word 0x0
+mask2: 			.word 0xFF
+mask3: 			.word 0xFFF
+endereco_max:	.word 0x3FF @ (1023)
+a_direita: 		.word 0x0
+erro:			.word 0x0
 
 tab_switch:
-	.word case_default
+	.word case_default	@ (0x0)
 	.word case_LOAD 	@ opcode = 0x01			
 	.word case_LOADN 	@ opcode = 0x02	
 	.word case_LOADABS 	@ opcode = 0x03
-	.word case_default		
+	.word case_default	@ (0x4)		
 	.word case_ADD 		@ opcode = 0x05		
 	.word case_SUB 		@ opcode = 0x06			
 	.word case_ADDABS 	@ opcode = 0x07			
@@ -63,22 +65,22 @@ tab_switch:
 	.word case_JUMPR 	@ opcode = 0x0E		
 	.word case_JUMPPL 	@ opcode = 0x0F		
 	.word case_JUMPPR 	@ opcode = 0x10
-	.word case_default			
+	.word case_default	@ (0x11)			
 	.word case_STORL 	@ opcode = 0x12		
 	.word case_STORR 	@ opcode = 0x13			
 	.word case_LSH 		@ opcode = 0x14			
 	.word case_RSH 		@ opcode = 0x15
-	.word case_default
-	.word case_default
-	.word case_default
-	.word case_default
-	.word case_default	
-	.word case_default
-	.word case_default
-	.word case_default
-	.word case_default
-	.word case_default
-	.word case_default		
+	.word case_default	@ (0x16)
+	.word case_default	@ (0x17)
+	.word case_default	@ (0x18)
+	.word case_default	@ (0x19)
+	.word case_default	@ (0x1A)	
+	.word case_default	@ (0x1B)
+	.word case_default	@ (0x1C)
+	.word case_default	@ (0x1D)
+	.word case_default	@ (0x1E)
+	.word case_default	@ (0x1F)
+	.word case_default	@ (0x20)		
 	.word case_STOR 	@ opcode = 0x21
 
 .text
@@ -88,7 +90,6 @@ main:
 	push {ip, lr}
 
 	bl inicializacao
-@ TODO: verificar todos os endereços!
 	bl simulacao
 	ldr r0, =p_sim_termina
 	bl printf
@@ -126,92 +127,122 @@ simulacao:
 			eor r0, r0, #1 		@ toggle a_direita
 			str r0, [r6]
 			bl switch 			@ chama switch para tratar a instrucao atual
-			
+			ldr r4, =erro
+			ldr r4, [r4]		@ recupera valor da variavel erro
+			cmp r4, #1
+			beq exit			@ se teve um erro sai do programa sem imprimir o estado
+			bl impressao_estado
 			ldr r6, =PC			
 			ldr r1, [r6] 		@ recupera PC
-			bl leitura_linha
+			bl leitura_linha	@ le a palavra apontada por PC
 			b loop_mmap
 	
 switch:
 	push {r1-r5, ip, lr}
-	@ r1 - linha atual
-	@ r2 - opcode
-	@ r3 - endereco
-	
+								@ r1 - linha atual
+								@ r2 - opcode
+								@ r3 - endereco	
 	mov r2, #0x01
+	mov r3, #-2
 	mov r0, r2
-	cmp r0, #0x01       	@ menor que menor entrada na tabela?
-	blt case_default    	@ sim, desvia
-	cmpge r0, #0x21     	@ compara com maior valor
-	bgt case_default    	@ val é maior que a maior entrada na tabela 
-							@ r0 será o índice na tabela
-	ldr r4, =tab_switch		@ carrega endereço da tabela de desvios
+	cmp r0, #0x01       		@ menor que menor entrada na tabela?
+	blt case_default    		@ sim, desvia
+	cmpge r0, #0x21     		@ compara com maior valor
+	bgt case_default    		@ val é maior que a maior entrada na tabela 
+								@ r0 será o índice na tabela
+	ldr r4, =tab_switch			@ carrega endereço da tabela de desvios
 	ldr pc,[r4,r0,lsl #2]
 
 	case_LOAD:
 		bl load
 		b break				
 	case_LOADN:
+		bl loadn
 		b break		
 	case_LOADABS:
+		bl loadabs
 		b break 			
 	case_ADD:
+		bl add
 		b break 				
 	case_SUB:
+		bl sub
 		b break 					
 	case_ADDABS:
+		bl addabs
 		b break 				
 	case_SUBABS:
+		bl subabs
 		b break	
 	case_LOADMQM:
+		bl loadmqm
 		b break 			
 	case_LOADMQ:
+		bl loadmq
 		b break 			
 	case_MUL:
+		bl mul
 		b break 					
 	case_DIV :
+		bl div
 		b break					
 	case_JUMPL:
+		bl jumpl
 		b break 			
 	case_JUMPR :
+		bl jumpr
 		b break			
 	case_JUMPPL:
+		bl jumppl
 		b break 			
 	case_JUMPPR:
+		bl jumppr
 		b break 				
 	case_STORL:
+		bl storl
 		b break			
 	case_STORR:
+		bl storr
 		b break 				
 	case_LSH:
+		bl lsh
 		b break					
 	case_RSH:
+		bl rsh
 		b break					
 	case_STOR:
+		bl stor
 		b break	
 	case_default:
-		b break
-
+		bl confirma_erro
+		ldr r0, =p_erro_opcode
+		mov r1, r2
+		bl printf
 
 	break:
-		bl impressao_estado
 		pop {r1-r5, ip, pc}
 
 load:
 	push {r1-r5, ip, lr}
-
+							@ r3 - endereco
 	mov r1, r3				@ carrega endereco para print
+	ldr r0, =p_load
+	push {r3}
+	bl printf
+	pop {r3}
+	mov r0, r3				@ carrega endereco para verificacao
+	bl verifica_endereco
+	cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+	beq sair_load			@ caso tenha erro sai
 	bl recupera_dado
 	mov r3, r0				@ recupera o retorno de recupera_dado
 	ldr r4, =AC				@ Carrega AC em r4
-	str r3, [r4]			@ Salva conteudo de M(X) em AC
-	
-	ldr r0, =p_load
-	bl printf
+	str r3, [r4]			@ Salva conteudo de M(X) em AC	
 
-	pop {r1-r5, ip, pc}
+	sair_load:
+		pop {r1-r5, ip, pc}
 		
-loadmmq:
+loadmqm:
 	push {ip, lr}
 
 	pop {ip, pc}
@@ -306,62 +337,89 @@ jumppr:
 
 	pop {ip, pc}
 
+verifica_endereco:	
+	push {r1-r5, ip, lr}
+									@ r0 - endereco a ser verificado
+									@ retorna em r0 1 ou 0 caso tenha erro ou nao
+	cmp r0, #0
+	blt confirma_erro_endereco		@ verifica se endereco menos que 0
+	ldr r1, =endereco_max			
+	ldr r1, [r1]					@recupera o maior endereco possivel
+	cmp r0, r1
+	bgt confirma_erro_endereco		@ verifica se endereco maior que 1023
+	mov r0, #0
+	mov r0, r1						@ nao ha erro
+	b sair_veri_end
+
+	confirma_erro_endereco:			
+		bl confirma_erro 			@ ativa a variavel erro
+		mov r1, r0					
+		ldr r0, =p_erro_endereco	@ imprime erro de endereco
+		bl printf
+		mov r1, #1
+		mov r0, r1					@ ha erro
+
+	sair_veri_end:
+		pop {r1-r5, ip, pc}
+
+confirma_erro:
+	push {ip, lr}
+	ldr r1, =erro 
+	mov r2, #1
+	str r2, [r1]	@ mudamos a variavel erro para verdadeira
+	pop {ip, pc}
 
 leitura_linha:	
 	push {ip, lr}
-
-	@ r1 - endereço atual
-	@ r2 - AA (opcode esquerda)
-	@ r3 - BBB (endereco esquerda)
-	@ r4 - CC (opcode direita)
-	@ r5 - DDD (endereco direita)
-
+							@ r1 - endereço atual
+							@ r2 - AA (opcode esquerda)
+							@ r3 - BBB (endereco esquerda)
+							@ r4 - CC (opcode direita)
+							@ r5 - DDD (endereco direita)
 	ldr r7, =MMAP
 	lsl r5, r1, #2
-	add r5, r5, r1 @ r1*5 para ajustar o endereço com o numero de bytes
+	add r5, r5, r1 			@ r1*5 para ajustar o endereço com o numero de bytes
 	add r7, r7, r5 
 
-	ldrb r2, [r7], #1 @ AA
+	ldrb r2, [r7], #1 		@ AA
 	
-	ldrb r3, [r7], #1 @ BBB
+	ldrb r3, [r7], #1 		@ BBB
 	ldrb r4, [r7], #1
 	lsl r3, r3, #4
 	lsr r5, r4, #4
 	add r3, r3, r5
 
-	lsl r4, r4, #4 @ CC
+	lsl r4, r4, #4 			@ CC
 	ldrb r5, [r7], #1
 	lsr r6, r5, #4
 	add r4, r4, r6
 	ldr r6, =mask2
 	ldr r6, [r6]
-	and r4, r4, r6 @ mask que guarda so os dois bytes menos significativos
+	and r4, r4, r6 			@ mask que guarda so os dois bytes menos significativos
 	
-	lsl r5, r5, #8 @ DDD
+	lsl r5, r5, #8 			@ DDD
 	ldrb r6, [r7], #1
 	add r5, r5, r6
 	ldr r6, =mask3
 	ldr r6, [r6]
-	and r5, r5, r6 @ mask que guarda so os tres bytes menos significativos
+	and r5, r5, r6 			@ mask que guarda so os tres bytes menos significativos
 
 	pop {ip, pc}
 
 recupera_dado:
 	push {r1-r4, ip, lr}
-
-	@ r1 - endereco
-	@ r2 - byte mais significativo
-	@ r3 - bytes menos significativos
-	@ r0 - retorno
-
+							@ r1 - endereco
+							@ r2 - byte mais significativo
+							@ r3 - bytes menos significativos
+							@ r0 - retorno
 	ldr r7, =MMAP
 	lsl r5, r1, #2
-	add r5, r5, r1 @ r1*5 para ajustar o endereço com o numero de bytes
+	add r5, r5, r1 			@ r1*5 para ajustar o endereço com o numero de bytes
 	add r7, r7, r5 
 
-	ldrb r2, [r7], #1 @ byte mais significativo
+	ldrb r2, [r7], #1 		@ byte mais significativo
 	
-	ldrb r3, [r7], #1 @ bytes menos significativos
+	ldrb r3, [r7], #1 		@ bytes menos significativos
 	ldrb r4, [r7], #1
 	ldrb r5, [r7], #1
 	ldrb r6, [r7], #1
@@ -378,8 +436,7 @@ recupera_dado:
 
 inicializacao:
 	push {ip, lr}
-
-	@ zerar todos os valores
+							@ zerar todos os valores
 	mov r0, #0
 	ldr r1, =AC
 	str r0, [r1]
@@ -389,8 +446,7 @@ inicializacao:
 	str r0, [r1]
 	ldr r1, =a_direita
 	str r0, [r1]
-
-	@ impressao inicial
+							@ impressao inicial
 	ldr r0, =p_sim_comeca
 	bl printf
 	ldr r0, =p_inicial
@@ -417,8 +473,7 @@ impressao_estado:
 
 impressao_linha:
 	push {r1-r5, ip, lr}
-
-	@impressao da linha lida
+							@impressao da linha lida
 	ldr r0, =p_linha	
 	push {r4, r5}
 	bl printf

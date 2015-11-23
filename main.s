@@ -41,6 +41,7 @@ p_jumpr:				.asciz "@ JUMP M(X,20:39), X = 0x%04X\n"
 p_jumppl: 				.asciz "@ JUMP+ M(X,0:19), X = 0x%04X\n"
 p_jumppr: 				.asciz "@ JUMP+ M(X,20:39), X = 0x%04X\n"
 
+mask1:			.word 0xF0
 mask2: 			.word 0xFF
 mask3: 			.word 0xFFF
 endereco_max:	.word 0x3FF @ (1023)
@@ -102,6 +103,7 @@ simulacao:
 	ldr r1, [r6]
 	bl leitura_linha
 	loop_mmap:
+		bl impressao_execucao
 		ldr r0, =a_direita
 		ldr r0, [r0] 			@ recupera a_direita
 		cmp r0, #0				@ verifica se estamos na instrucao da esquerda ou da direita e le em consequencia
@@ -120,8 +122,7 @@ simulacao:
 
 		saida_if:
 			cmp r2, #0			@ verifica se os opcode1 é 0, indica o final do programma
-			beq exit	
-			bl impressao_execucao
+			beq exit
 			ldr r6, =a_direita
 			ldr r0, [r6]
 			eor r0, r0, #1 		@ toggle a_direita
@@ -142,8 +143,14 @@ switch:
 								@ r1 - linha atual
 								@ r2 - opcode
 								@ r3 - endereco	
-	mov r2, #0x4
-	mov r3, #-2
+	@-------- teste -----------
+		@mov r2, #0x13
+		@mov r3, #0x2
+		@ldr r4, =AC
+		@mov r5, #6
+		@str r5, [r4]
+	@------- fim teste --------
+
 	mov r0, r2
 	cmp r0, #0x01       		@ menor que menor entrada na tabela?
 	blt case_default    		@ sim, desvia
@@ -160,103 +167,129 @@ switch:
 								@ r3 - endereco
 		mov r1, r3				@ carrega endereco para print
 		ldr r0, =p_load
-		push {r3}
+		push {r1-r3}
 		bl printf
-		pop {r3}
+		pop {r1-r3}
+
 		mov r0, r3				@ carrega endereco para verificacao
 		bl verifica_endereco
 		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
 		beq break				@ caso tenha erro sai
+
 		bl recupera_dado
 		mov r3, r0				@ recupera o retorno de recupera_dado
-		ldr r4, =AC				@ Carrega AC em r4
-		str r3, [r4]			@ Salva conteudo de M(X) em AC	
 
+		ldr r4, =AC				@ Carrega AC em r4
+		str r3, [r4]			@ Salva conteudo de M(X) em AC
 		b break
 
 	@ LOAD -M(x) - 0x02
 	loadn:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
+								@ r3 - endereco
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_loadn
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		bl recupera_dado		@ chama a funcao recupera_dado em r0
-		mov r3, r0				@ Carrega M(X) em r3
+		mov r3, r0				@ recupera o retorno de recupera_dado
+		mov r5, #-1				@ Move (-1) para r5
+		mul r6, r3, r5			@ r6 = -M(X) = M(X) * (-1) 
 
 		ldr r4, =AC				@ Carrega AC em r4
-		mov r5, #-1				@ Move (-1) para r5
-		mul r6, r3, r5			@ r6 = M(X) * (-1)
-		str r6, [r4]			@ Salva -M(X) em AC
-
-		ldr r0, =p_loadn
-		bl printf
-
-		pop {r1-r5, ip, pc}
+		str r6, [r4]			@ Salva -M(X) em AC		
 		b break
 
 	@ LOAD |M(X)|- 0x03
 	loadabs:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
-		bl recupera_dado		@ chama a funcao recupera_dado em r0
-		mov r3, r0				@ Carrega M(X) em r3
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_loadabs
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
 
 		ldr r4, =AC				@ Carrega AC em r4
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ recupera o retorno de recupera_dado
 		cmp r3, #0				@ Compara M(X) com 0
 		strge r3, [r4]			@ Se M(X) >= 0, AC = M(X)
 		movlt r5, #-1			@ Se M(X) < 0, carrega -1 em r5,
 		mullt r6, r3, r5		@ r6 = M(X) * (-1)
 		strlt r6, [r4]			@ e AC = -M(X)
 								@ Salva |M(X)| em AC
-
-		ldr r0, =p_loadabs
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
  
 	@ ADD M(X)   - 0x05
 	add:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
-		bl recupera_dado		@ chama a funcao recupera_dado em r0
-		mov r3, r0				@ Carrega M(X) em r3
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_add
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ recupera o retorno de recupera_dado
 		ldr r4, =AC				@ Carrega &AC em r4
 		ldr r5, [r4]			@ Carrega conteudo de AC em r5
-		add r5, r5, r3			@ r2 = AC + M(X)
+		add r5, r5, r3			@ r5 = AC + M(X)
 		str r5, [r4]			@ Salva a soma em AC
-
-		ldr r0, =p_add
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ SUB M(X)   - 0x06
 	sub:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
-		bl recupera_dado		@ chama a funcao recupera_dado em r0
-		mov r3, r0				@ Carrega M(X) em r3
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_sub
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ recupera o retorno de recupera_dado
 		ldr r4, =AC				@ Carrega &AC em r4
 		ldr r5, [r4]			@ Carrega conteudo de AC em r5
 		sub r5, r5, r3			@ r5 = AC - M(X)
 		str r5, [r4]			@ Salva a subtracao em AC
-
-		ldr r0, =p_sub
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ ADD |M(X)| - 0x07
+	@testar
 	addabs:
-		push {r1-r5, ip, lr}
-		
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_addabs
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		mov r1, r3				@ carrega endereco para funcao recupera_dado
 		bl recupera_dado		@ chama a funcao recupera_dado em r0
 		mov r3, r0				@ Carrega M(X) em r3
@@ -269,73 +302,85 @@ switch:
 		ldr r6, [r4]			@ Carrega conteudo de AC em r6
 		add r6, r6, r5			@ r6 = AC + |M(X)|
 		str r6, [r4]			@ Salva a soma em AC
-
-		ldr r0, =p_addabs
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ SUB |M(X)| - 0x08
+	@testar
 	subabs:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_subabs
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		bl recupera_dado		@ chama a funcao recupera_dado em r0
 		mov r3, r0				@ Carrega M(X) em r3
 
 		cmp r3, #0				@ Compara M(X) com 0
 		movlt r4, #-1			@ Se M(X) <  0, carrega -1 em r4
-		mullt r5, r3, r4		@ e r5 = -M(X)
+		mullt r5, r3, r4		@ e r5 = M(X)*(-1)
 		movge r5, r3			@ Se M(X) >= 0, r5 = M(X)
 		ldr r4, =AC				@ Carrega AC em r4
-		ldr r5, [r4]			@ Carrega conteudo de AC em r5
-		sub r5, r5, r3			@ r2 = AC - M(X)
-		str r5, [r4]			@ Salva a subtracao em AC
-
-		ldr r0, =p_subabs
-		bl printf
-
-		pop {r1-r5, ip, pc}
+		ldr r6, [r4]			@ Carrega conteudo de AC em r6
+		sub r6, r6, r5			@ r6 = AC - |M(X)|
+		str r6, [r4]			@ Salva a soma em AC
 		b break
 		
 	@ LOAD MQ,M(x) - 0x09
+	@testar
 	loadmqm:
-		push {ip, lr}
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_loadmqm
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
-		bl recupera_dado		@ retorna em r0 a funcao recupera_dado
-		mov r3, r0				@ carrega M(X) em r3
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		bl recupera_dado		@ chama a funcao recupera_dado em r0
+		mov r3, r0				@ Carrega M(X) em r3
 
 		ldr r4, =MQ				@ Carrega MQ em r4
-		str r3, [r4]			@ Salva M(X) em MQ
-		
-		ldr r0, =p_loadmqm
-		bl printf
-		
-		pop {ip, pc}
-		b break					@ break
+		str r3, [r4]			@ Salva M(X) em MQ		
+		b break					
 
 	@ LOAD MQ    - 0x0A
 	loadmq:
-		push {r1-r5, ip, lr}
-
 		ldr r4, =MQ				@ Carrega &MQ em r4
 		ldr r4, [r4]			@ Carrega conteudo de MQ
 		ldr r5, =AC				@ Carrega &AC em r5
 		str r4, [r5]			@ Salva conteudo de MQ em AC
 
+		mov r1, r3
 		ldr r0, =p_loadmq
 		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ MUL M(X)   - 0x0B
+	@testar
 	mul:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_mul
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		bl recupera_dado		@ chama a funcao recupera_dado em r0
 		mov r3, r0				@ Carrega M(X) em r3
 
@@ -348,20 +393,29 @@ switch:
 		ldr r6, =AC				@ Carrega &AC em r6
 		str r5, [r6]			@ Salva os zeros no AC
 								@ (bits mais significativos)
-
-		ldr r0, =p_mul
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
-	@ DIV M(X)   - 0x0C	
+	@ DIV M(X)   - 0x0C
+	@testar
 	div:
-		push {r1-r5, ip, lr}
-		
-		mov r1, r3				@ carrega endereco para funcao recupera_dado
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_div
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
+
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		bl recupera_dado		@ chama a funcao recupera_dado em r0
 		mov r3, r0				@ Carrega M(X) em r3
+
+		cmp r3, #0
+		bleq confirma_erro_div_zero
+		bleq break
 
 		ldr r4, =AC				@ Carrega AC em r4
 		ldr r4, [r4]			@ Carrega conteudo de AC em r4
@@ -377,52 +431,66 @@ switch:
 				str r4, [r6]	@ Salva o resto da divisao em AC
 				ldr r6, =MQ		@ Carrega MQ em r6
 				str r5, [r6]	@ Salva quociente em MQ
-
-		ldr r0, =p_mul
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ JUMP M(X,0:19) - 0x0D
+	@testar
 	jumpl:
-		push {r1-r5, ip, lr}
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_jumpl
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		@ -- r3 contem o endereco do opcode
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		ldr r4, =PC				@ Carrega &PC em r4
 		str r3, [r4]			@ Salva endereco em PC
 		ldr r5, =a_direita		@ Carrega a_direita em r5
 		mov r6, #0				@ r6 = 0
 		str r6, [r5]			@ Instrucao a esquerda
-
-		ldr r0, =p_jumpl
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ JUMP M(X,20:39)- 0x0E
+	@testar
 	jumpr:
-		push {r1-r5, ip, lr}
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_jumpr
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		@ -- r3 contem o endereco do opcode
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
 		ldr r4, =PC				@ Carrega &PC em r4
 		str r3, [r4]			@ Salva endereco em PC
 		ldr r5, =a_direita		@ Carrega a_direita em r5
 		mov r6, #1				@ r6 = 1
 		str r6, [r5]			@ Instrucao a direita
-
-		ldr r0, =p_jumpr
-		bl printf
-
-		pop {r1-r5, ip, pc}
 		b break
 
 	@ JUMP+M(X,0:19) - 0x0F
+	@testar
 	jumppl:
-		push {r1-r5, ip, lr}
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_jumppl
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		@ -- r3 contem o endereco do opcode
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
 
 		ldr r4, =AC				@ Carrega &AC em r4
 		ldr r4, [r4]			@ Carrega conteudo de AC em r4
@@ -434,17 +502,26 @@ switch:
 		mov r6, #0				@ r6 = 0
 		str r6, [r5]			@ Instrucao a esquerda
 
-		ldr r0, =p_jumppl
+		ldr r0, =p_salto_realizado
+		push {r1-r3}
 		bl printf
-
-		pop {r1-r5, ip, pc}
+		pop {r1-r3}
 		b break
 
 	@ JUMP+M(X,20:39)- 0x10
+	@testar
 	jumppr:
-		push {r1-r5, ip, lr}
+								@ r3 - endereco		
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_jumppr
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		@ -- r3 contem o endereco do opcode
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
 
 		ldr r4, =AC				@ Carrega &AC em r4
 		ldr r4, [r4]			@ Carrega conteudo de AC em r4
@@ -456,59 +533,150 @@ switch:
 		mov r6, #1				@ r6 = 1
 		str r6, [r5]			@ Instrucao a direita
 
-		ldr r0, =p_jumppr
+		ldr r0, =p_salto_realizado
+		push {r1-r3}
 		bl printf
-
-		pop {r1-r5, ip, pc}
+		pop {r1-r3}
 		b break
 
 	@ STOR M(X,8:19) -0x12
 	storl:
-		push {ip, lr}
+								@ r3 - endereco				
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_storl
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		pop {ip, pc}
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		ldr r4, =AC 			@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+
+		ldr r7, =MMAP
+		lsl r5, r3, #2
+		add r5, r5, r3 			@ r3*5 para ajustar o endereço com o numero de bytes 
+		add r7, r7, r5 			
+								@ preenchemos no formato AA BB CC DD EE
+
+		push {r1}
+		lsr r0, r4, #4
+		strb r0, [r7, #1]
+
+		lsl r0, r4, #4
+		ldrb r1, [r7, #2]
+		and r1, r1, #0xF
+		add r0, r0, r1
+		strb r0, [r7, #2]
+		pop {r1}
+		b break
 
 	@ STOR M(X,28:39)- 0x13
 	storr:
-		push {ip, lr}
+								@ r3 - endereco				
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_storr
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		pop {ip, pc}
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		ldr r4, =AC 			@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+
+		ldr r7, =MMAP
+		lsl r5, r3, #2
+		add r5, r5, r3 			@ r3*5 para ajustar o endereço com o numero de bytes 
+		add r7, r7, r5 			
+								@ preenchemos no formato AA BB CC DD EE
+
+		push {r1}
+		strb r4, [r7, #4]
+
+		lsr r0, r4, #8
+		and r0, r0, #0xF
+		ldrb r1, [r7, #3]
+		ldr r2, =mask1			@ 0xF0
+		ldr r2, [r2]
+		and r1, r1, r2
+		add r0, r0, r1
+		strb r0, [r7, #3]
+		pop {r1}
+
+		bl leitura_linha
+		b break
 
 	@ LSH - 0x14
 	lsh:
-		push {r1-r5, ip, lr}
-
 		ldr r4, =AC				@ Carrega AC em r4
-		ldr r4, [r4]			@ Carrega conteudo de AC em r4
-		lsl r5, r4, #1			@ Desloca AC para a esquerda
+		ldr r5, [r4]			@ Carrega conteudo de AC em r5
+		lsl r5, r5, #1			@ Desloca AC para a esquerda
 		str r5, [r4]			@ Salva AC deslocado em AC
 
 		ldr r0, =p_lsh
+		push {r1-r3}
 		bl printf
-
-		pop {r1-r5, ip, pc}
+		pop {r1-r3}
 		b break
 
 	@ RSH - 0x15
 	rsh:
-		push {r1-r5, ip, lr}
-
 		ldr r4, =AC				@ Carrega AC em r4
-		ldr r4, [r4]			@ Carrega conteudo de AC em r4
-		lsr r5, r4, #1			@ Desloca AC para a direitra
+		ldr r5, [r4]			@ Carrega conteudo de AC em r5
+		lsr r5, r5, #1			@ Desloca AC para a direitra
 		str r5, [r4]			@ Salva AC deslocado em AC
 
 		ldr r0, =p_rsh
+		push {r1-r3}
 		bl printf
-
-		pop {r1-r5, ip, pc}
+		pop {r1-r3}
 		b break
 
-	@ STOR - 0x21
+	@ STOR M(X)- 0x21
 	stor:
-		push {ip, lr}
+								@ r3 - endereco				
+		mov r1, r3				@ carrega endereco para print
+		ldr r0, =p_stor
+		push {r1-r3}
+		bl printf
+		pop {r1-r3}
 
-		pop {ip, pc}
+		mov r0, r3				@ carrega endereco para verificacao
+		bl verifica_endereco
+		cmp r0, #1				@ verifica o retorno da rotina verifica_endereco
+		beq break				@ caso tenha erro sai
+
+		ldr r4, =AC 			@ Carrega AC em r4
+		ldr r4, [r4]			@ Carrega conteudo de AC em r4
+
+		ldr r7, =MMAP
+		lsl r5, r3, #2
+		add r5, r5, r3 			@ r3*5 para ajustar o endereço com o numero de bytes 
+		add r7, r7, r5 			
+								@ preenchemos no formato AA BB CC DD EE
+
+		mov r2, #0				@ AA é zerado
+		strb r2, [r7, #0]		@ guarda o byte menos significativo de r2 no 1o byte depois do endereco de r7
+
+		lsr r0, r4, #24			@ BB
+		strb r0, [r7, #1]		@ guarda o byte menos significativo de r0 no 2o byte depois do endereco de r7
+
+		lsr r0, r4, #16			@ CC
+		strb r0, [r7, #2]		@ guarda o byte menos significativo de r0 no 3o byte depois do endereco de r7
+
+		lsr r0, r4, #8			@ DD
+		strb r0, [r7, #3]		@ guarda o byte menos significativo de r0 no 4o byte depois do endereco de r7
+
+		strb r4, [r7, #4]		@ EE
+								@ guarda o byte menos significativo de r0 no 5o byte depois do endereco de r7
+		b break
 
 	@ OpCode falso
 	case_default:
@@ -546,11 +714,22 @@ verifica_endereco:
 	sair_veri_end:
 		pop {r1-r5, ip, pc}
 
+confirma_erro_div_zero:
+	push {r1-r3, ip, lr}
+
+	bl confirma_erro 				@ ativa a variavel erro				
+	ldr r0, =p_erro_divisao			@ imprime erro de divisao por zero
+	bl printf
+
+	pop {r1-r3, ip, pc}
+
 confirma_erro:
 	push {r1-r3, ip, lr}
+
 	ldr r1, =erro 
 	mov r2, #1
 	str r2, [r1]	@ mudamos a variavel erro para verdadeira
+
 	pop {r1-r3, ip, pc}
 
 leitura_linha:	
